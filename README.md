@@ -1,7 +1,7 @@
 # HEST: Hyperbolic Entropy Steering
 
 Code for the paper **Hesitation Has a Geometry: Entropy-Trained Hyperbolic Probes for Sparse Activation Steering**
-by [Zeyong Zhang](https://github.com/Zeyong98), [Tung Sum Thomas Kwok](https://thomask1018.github.io/), [Tengfei Ma](https://sbu-ma.github.io/)
+by [Zeyong Zhang](https://zeyong98.github.io/), [Tung Sum Thomas Kwok](https://thomask1018.github.io/), [Tengfei Ma](https://sbu-ma.github.io/)
 and [Mengjia Xu](https://gracexu182.github.io/).
 
 [**arXiv**](https://arxiv.org/abs/2610.02391) &nbsp;|&nbsp; [**PDF**](https://arxiv.org/pdf/2610.02391) &nbsp;|&nbsp; [**Project page**](https://zeyong98.github.io/HEST/)
