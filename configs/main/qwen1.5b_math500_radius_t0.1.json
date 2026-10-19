@@ -1,0 +1,14 @@
+[
+ {
+  "kind": "chart",
+  "chart": "data/checkpoints/entchart_radius_L19.pt",
+  "target": "centre",
+  "t": 0.1,
+  "rho": 1.0,
+  "K": 1,
+  "mode": "reroll",
+  "ent_thr": 1.0,
+  "retrigger": true,
+  "refractory": 1
+ }
+]

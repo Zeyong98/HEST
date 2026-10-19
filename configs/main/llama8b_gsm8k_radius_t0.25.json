@@ -1,0 +1,14 @@
+[
+ {
+  "kind": "chart",
+  "chart": "data/checkpoints/entchart_radius_llama_gsm_L13.pt",
+  "target": "centre",
+  "t": 0.25,
+  "rho": 1.0,
+  "K": 1,
+  "mode": "reroll",
+  "ent_thr": 1.4,
+  "retrigger": true,
+  "refractory": 1
+ }
+]

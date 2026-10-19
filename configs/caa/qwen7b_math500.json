@@ -1,0 +1,10 @@
+[
+ {
+  "kind": "vec",
+  "vec": "data/checkpoints/caa_q7_math.pt",
+  "mult": 1,
+  "mode": "all",
+  "K": 1,
+  "rho": 0
+ }
+]

@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HEST: Hyperbolic Entropy Steering</title>
+<meta name="description" content="Hesitation Has a Geometry: Entropy-Trained Hyperbolic Probes for Sparse Activation Steering. HEST steers a language model only at the tokens where it hesitates, along a geodesic of a hyperbolic probe trained on the model's own next-token entropy.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Hesitation Has a Geometry: Entropy-Trained Hyperbolic Probes for Sparse Activation Steering">
+<meta property="og:description" content="HEST steers a language model only at the tokens where it hesitates, along a geodesic of a hyperbolic probe trained on the model's own next-token entropy.">
+<meta property="og:url" content="https://zeyong98.github.io/HEST/">
+<meta property="og:image" content="https://zeyong98.github.io/HEST/static/HEST_pipeline.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%232a2f6c' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='2.6' fill='%232a2f6c'/%3E%3Ccircle cx='23' cy='11' r='2.6' fill='%23eb6834'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['\\[', '\\]']] }, chtml: { scale: 1.0 } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<style>
+:root {
+  --bg: #f8f9fa;
+  --card: #ffffff;
+  --navy: #2a2f6c;
+  --indigo: #3d4791;
+  --peri: #5b67b8;
+  --text: #252525;
+  --muted: #5f6673;
+  --faint: #8a91a0;
+  --line: #e6e8ee;
+  --shade: #eef3fc;
+  --callout: #eaf0fb;
+  --fork: #eb6834;
+  --fork-soft: #fdebe3;
+  --ok: #1a7f4b;
+  --bad: #c0392b;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --content: 1100px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 1rem; line-height: 1.65; }
+a { color: var(--navy); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 0.15em; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--peri); outline-offset: 3px; border-radius: 4px; }
+p { margin: 0 0 0.9em; }
+strong { font-weight: 600; }
+.container { width: min(100% - 2rem, var(--content)); margin-inline: auto; }
+
+/* top bar */
+.topbar { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid var(--line); }
+.topbar .container { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.9rem 0.45rem 0.7rem; border: 1px solid var(--line); border-radius: 999px; font-weight: 700; color: var(--navy); background: #fff; }
+.brand svg { width: 22px; height: 22px; }
+.topbar nav { display: flex; align-items: center; gap: 1.4rem; font-size: 0.95rem; font-weight: 500; }
+.topbar nav a { color: var(--text); }
+.topbar nav a.icon { display: inline-flex; align-items: center; }
+.topbar nav a.icon svg { width: 22px; height: 22px; fill: none; stroke: var(--text); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* hero */
+.hero { text-align: center; padding: 5.5rem 0 3rem; background: radial-gradient(60% 55% at 50% 0%, #dce6f6 0%, #eaf0f9 45%, var(--bg) 100%); }
+.hero h1 { font-size: clamp(2.6rem, 6vw, 3.9rem); font-weight: 800; color: var(--navy); line-height: 1.1; margin: 0 0 0.6rem; letter-spacing: -0.01em; }
+.hero .title { font-size: clamp(1.3rem, 2.6vw, 1.9rem); font-weight: 700; color: var(--text); line-height: 1.3; max-width: 900px; margin: 0 auto 1.4rem; }
+.hero .tagline { font-size: clamp(1.02rem, 1.8vw, 1.3rem); color: var(--muted); margin: 0 0 0.35rem; }
+.hero .tagline b { color: var(--text); font-weight: 700; }
+.hero .badge { display: inline-block; margin: 1.3rem 0 1.4rem; padding: 0.4rem 0.95rem; border-radius: 999px; background: #fff; border: 1px solid var(--line); color: var(--navy); font-weight: 600; font-size: 0.95rem; }
+.buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.7rem; }
+.btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.3rem 0.65rem 1.1rem; border-radius: 999px; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(42, 47, 108, 0.06); color: var(--navy); font-weight: 500; font-size: 1rem; transition: box-shadow 120ms ease, transform 120ms ease; }
+.btn:hover { text-decoration: none; box-shadow: 0 6px 18px rgba(42, 47, 108, 0.12); transform: translateY(-1px); }
+.btn svg { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
+
+/* teaser and authors */
+.teaser { padding: 2.5rem 0 1rem; text-align: center; }
+.teaser img { display: block; width: min(100%, 980px); height: auto; margin: 0 auto; }
+.teaser .caption { color: var(--muted); font-size: 0.98rem; max-width: 900px; margin: 1rem auto 0; }
+.teaser .caption b { color: var(--text); font-weight: 600; }
+.authors { text-align: center; padding: 1.6rem 0 0; }
+.authors .names { font-size: 1.15rem; line-height: 1.9; margin: 0 0 0.6rem; }
+.authors .names span { white-space: nowrap; }
+.authors .names a { color: var(--navy); text-decoration: underline; text-decoration-color: #c5cae6; text-underline-offset: 0.2em; }
+.authors sup { font-size: 0.7em; color: var(--muted); margin-left: 0.08em; }
+.authors .affil { color: var(--muted); font-size: 0.95rem; margin: 0; }
+.authors .affil sup { margin-right: 0.15em; }
+.authors .affil span { white-space: nowrap; margin: 0 0.7rem; }
+
+/* sections and cards */
+section { padding: 3rem 0 1rem; }
+h2 { text-align: center; font-size: clamp(1.9rem, 3.6vw, 2.5rem); font-weight: 700; color: var(--navy); margin: 0 0 1.8rem; letter-spacing: -0.01em; }
+.card { background: var(--card); border-radius: 14px; box-shadow: 0 4px 20px rgba(30, 36, 80, 0.07); margin: 0 0 1.5rem; overflow: hidden; }
+.card > .head { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0.9rem 1.5rem; color: #fff; font-size: 1.12rem; font-weight: 600; background: linear-gradient(90deg, var(--navy), var(--indigo)); border: 0; text-align: left; cursor: pointer; font-family: inherit; }
+.card.l2 > .head { background: linear-gradient(90deg, var(--indigo), var(--peri)); }
+.card.l3 > .head { background: linear-gradient(90deg, var(--peri), #7682cc); }
+.card > .head .tg { font-size: 1.3rem; line-height: 1; font-weight: 700; }
+.card > .body { padding: 1.4rem 1.5rem 1.2rem; }
+.card.collapsed > .body { display: none; }
+.body > :first-child { margin-top: 0; }
+.body > :last-child { margin-bottom: 0; }
+.formula { margin: 0.6rem 0 1rem; overflow-x: auto; padding: 0.2rem 0; text-align: center; }
+.callout { margin: 1rem 0; padding: 0.85rem 1.1rem; background: linear-gradient(90deg, var(--callout), #fff 85%); border-left: 4px solid var(--navy); border-radius: 0 10px 10px 0; }
+.callout p { margin: 0; }
+.callout .lead { font-weight: 700; }
+ul.tri { list-style: none; padding: 0; margin: 0.6rem 0; }
+ul.tri li { position: relative; padding-left: 1.3rem; margin: 0 0 0.45rem; }
+ul.tri li::before { content: ""; position: absolute; left: 0.1rem; top: 0.52em; border-left: 0.5rem solid var(--navy); border-top: 0.32rem solid transparent; border-bottom: 0.32rem solid transparent; }
+ul.dots { padding-left: 1.3rem; margin: 0; }
+ul.dots li { margin: 0 0 0.75rem; }
+ul.dots li b { font-weight: 700; color: var(--navy); }
+figure { margin: 1.2rem 0 0.4rem; text-align: center; }
+figure img { display: block; width: 100%; height: auto; margin: 0 auto; }
+figure.narrow img { width: min(100%, 860px); }
+figcaption { color: var(--muted); font-size: 0.93rem; margin-top: 0.7rem; text-align: left; }
+figcaption b { color: var(--text); font-weight: 600; }
+
+/* tables */
+.table-wrap { overflow-x: auto; margin: 0.4rem 0 0.8rem; border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 0.7rem 0.75rem; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+thead th { background: #f3f4f7; font-weight: 600; color: var(--text); }
+thead tr.group th { background: #f3f4f7; border-bottom: 0; padding-bottom: 0.2rem; color: var(--navy); }
+thead tr.group th.blank { background: #f3f4f7; }
+tbody tr:last-child td { border-bottom: 0; }
+th.l, td.l { text-align: left; }
+td.hest, th.hest { background: var(--shade); }
+td.best { font-weight: 700; }
+td .d { font-size: 0.82em; color: var(--faint); margin-left: 0.3em; }
+td .d.pos { color: var(--ok); }
+td .d.neg { color: var(--bad); }
+tbody tr.sep td { border-top: 2px solid #d9dce6; }
+.note { color: var(--muted); font-size: 0.9rem; margin: 0.4rem 0 0; }
+
+/* example */
+.strip-scroll { width: 100%; }
+.strip { display: block; width: 100%; height: auto; }
+.strip .ax { stroke: var(--faint); stroke-width: 1; }
+.strip .tick { font-size: 11px; fill: var(--muted); }
+.strip .axl { font-size: 12px; fill: var(--muted); }
+.strip .thr { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.strip .thrl { font-size: 13px; fill: var(--muted); font-style: italic; }
+.strip .bar { fill: #b6c8df; }
+.strip .hes { fill: var(--fork); }
+.strip .ann { stroke: var(--muted); stroke-width: 1; fill: none; }
+.strip .annt { font-size: 13px; fill: var(--text); font-style: italic; }
+.example { margin-top: 1rem; font-size: 0.97rem; }
+.example .box { border: 1px solid var(--line); border-radius: 10px; padding: 0.85rem 1rem; background: #fff; }
+.example .problem { background: #f6f7fa; border-color: #f6f7fa; margin-bottom: 0.9rem; }
+.example .mark { background: var(--fork-soft); padding: 0 0.3em; border-radius: 3px; }
+.example .hint { color: var(--faint); font-size: 0.86em; float: right; margin-left: 1rem; }
+.example .cont { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+.example .cont .box { height: 100%; }
+.example .box h4 { margin: -0.85rem -1rem 0.75rem; padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: 600; background: #f3f4f7; border-bottom: 1px solid var(--line); border-radius: 10px 10px 0 0; }
+.example .box.hest { border-color: #c3cbea; }
+.example .box.hest h4 { background: var(--shade); color: var(--navy); border-bottom-color: #dfe5f6; }
+.example .verdict { font-weight: 700; }
+.example .verdict.ok { color: var(--ok); }
+.example .verdict.bad { color: var(--bad); }
+.example .box p { margin: 0 0 0.5em; }
+.example .box p:last-child { margin-bottom: 0; }
+.example mjx-container { font-size: 100% !important; }
+
+/* citation */
+#citation .intro { text-align: center; color: var(--muted); margin: -0.8rem 0 1.2rem; }
+.bib { position: relative; max-width: 860px; margin: 0 auto; }
+.bib pre { margin: 0; padding: 1.1rem 1.2rem; background: #fff; border: 1px solid var(--line); border-radius: 12px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.86rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.bib button { position: absolute; top: 0.7rem; right: 0.7rem; display: inline-flex; align-items: center; gap: 0.35rem; font-family: inherit; font-size: 0.82rem; font-weight: 500; color: var(--navy); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 0.35rem 0.6rem; cursor: pointer; }
+.bib button:hover { border-color: var(--peri); }
+.bib button svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.8; }
+
+footer { margin-top: 3rem; border-top: 1px solid var(--line); padding: 2rem 0 2.6rem; text-align: center; color: var(--muted); font-size: 0.92rem; }
+footer p { margin: 0 0 0.4rem; }
+footer a { text-decoration: underline; text-decoration-color: #c5cae6; text-underline-offset: 0.2em; }
+
+@media (max-width: 760px) {
+  .topbar nav a.text { display: none; }
+  .hero { padding-top: 3.5rem; }
+  .card > .body { padding: 1.1rem 1rem 1rem; }
+  .card > .head { padding: 0.8rem 1rem; font-size: 1.02rem; }
+  .example .cont { grid-template-columns: 1fr; }
+  .strip-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .strip { min-width: 640px; }
+  .formula { font-size: 0.92rem; }
+  th, td { padding: 0.55rem 0.5rem; font-size: 0.9rem; }
+  .hide-sm { display: none; }
+  .authors .affil span { display: block; margin: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="container">
+    <a class="brand" href="#top" aria-label="HEST, top of page">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="#2a2f6c" stroke-width="2.5"/><circle cx="16" cy="16" r="2.6" fill="#2a2f6c"/><circle cx="23" cy="11" r="2.6" fill="#eb6834"/></svg>
+      HEST
+    </a>
+    <nav aria-label="Sections">
+      <a class="text" href="#tldr">TL;DR</a>
+      <a class="text" href="#method">Method</a>
+      <a class="text" href="#results">Results</a>
+      <a class="text" href="#citation">Citation</a>
+      <a class="icon" href="https://github.com/Zeyong98/HEST" aria-label="Code repository"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5"/><path d="m16 7 5 5-5 5"/><path d="m14 4-4 16"/></svg></a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero" id="top">
+  <div class="container">
+    <h1>HEST</h1>
+    <p class="title">Hesitation Has a Geometry: Entropy-Trained Hyperbolic Probes for Sparse Activation Steering</p>
+    <p class="tagline">Steering only at <b>hesitation points</b>, the few tokens where the next-token entropy is high</p>
+    <p class="tagline">Along a geodesic of a <b>hyperbolic probe</b> trained on the model's own entropy, with no correctness labels</p>
+    <div class="authors">
+      <p class="names">
+        <span><a href="https://github.com/Zeyong98">Zeyong Zhang</a><sup>1</sup>,</span>
+        <span><a href="https://thomask1018.github.io/">Tung Sum Thomas Kwok</a><sup>2</sup>,</span>
+        <span><a href="https://sbu-ma.github.io/">Tengfei Ma</a><sup>3</sup>,</span>
+        <span><a href="https://gracexu182.github.io/">Mengjia Xu</a><sup>1</sup></span>
+      </p>
+      <p class="affil"><span><sup>1</sup>New Jersey Institute of Technology</span><span><sup>2</sup>University of California, Los Angeles</span><span><sup>3</sup>Stony Brook University</span></p>
+    </div>
+    <div><span class="badge">arXiv:2610.02391</span></div>
+    <nav class="buttons" aria-label="Paper links">
+      <a class="btn" href="https://arxiv.org/abs/2610.02391"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>Paper</a>
+      <a class="btn" href="https://arxiv.org/pdf/2610.02391"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>PDF</a>
+      <a class="btn" href="https://github.com/Zeyong98/HEST"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5"/><path d="m16 7 5 5-5 5"/><path d="m14 4-4 16"/></svg>Code</a>
+      <a class="btn" href="#citation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H5v6h4V7zM9 13c0 3-2 4-4 4"/><path d="M19 7h-4v6h4V7zM19 13c0 3-2 4-4 4"/></svg>BibTeX</a>
+    </nav>
+  </div>
+</header>
+
+<div class="teaser">
+  <div class="container">
+    <img src="static/HEST_pipeline.png" alt="Overview of HEST. (a) Fixed-vector steering adds the same vector at every token. (b, c) HEST maps hidden states into the Poincaré ball with a probe trained on next-token entropy; the readout is the Busemann function of an ideal point or the distance to the origin. (d) HEST steers only tokens whose entropy exceeds the threshold. (e) At such a token the state is mapped to the ball, moved along a geodesic, and mapped back." width="1512" height="851">
+    <p class="caption"><b>Fixed-vector steering versus HEST.</b> (a) Fixed-vector steering adds the same vector at every token. (b, c) HEST embeds hidden states in the Poincaré ball with a probe trained on next-token entropy; the readout is the Busemann function of an ideal point or the distance to the origin. (d) Only tokens whose entropy exceeds the threshold are steered. (e) At such a token the state is embedded, moved along a geodesic by distance $t$&#8288;, and mapped back.</p>
+  </div>
+</div>
+
+<main>
+
+<section id="tldr">
+  <div class="container">
+    <h2>TL;DR</h2>
+    <div class="card">
+      <div class="body">
+        <ul class="dots">
+          <li><b>Motivation.</b> Standard activation steering applies a fixed intervention at every token, while multi-step reasoning is characterized by sparse hesitation points where the model is uncertain.</li>
+          <li><b>Key insight.</b> The model's own next-token entropy provides a label-free signal for identifying these hesitation points and determining where steering is most needed.</li>
+          <li><b>HEST.</b> HEST learns a hyperbolic steering probe from state-entropy pairs and intervenes only at high-entropy tokens, requiring no correctness labels, contrastive prompts, or model retraining.</li>
+          <li><b>Geometric principle.</b> Hyperbolic geometry provides structured steering directions with a provable control guarantee: a geodesic step of length $t$ changes the Busemann readout by exactly $\sqrt{c}\,t$&#8288;.</li>
+          <li><b>Results.</b> On three instruction-tuned models from the Qwen2.5-Math and Llama-3.1 families, HEST with the Busemann readout improves greedy accuracy on MATH-500 and GSM8K in five of six settings, by up to 1.8 points, whereas a contrastive steering vector added at every token lowers accuracy. With a Euclidean probe trained in the same way, this gain disappears on the development model.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <div class="container">
+    <h2>Method</h2>
+
+    <div class="card">
+      <button class="head" type="button" aria-expanded="true">Hesitation Points and the Entropy Gate <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>During greedy decoding, after the model reads the token at position $i$&#8288;, it has a layer-$\ell$ hidden state $h_i$ and a next-token distribution with entropy $H_i$&#8288;. The entropy comes from logits the model produces anyway, so it needs no annotation. A position with $H_i > \theta$ is a <em>hesitation point</em>. Most positions of a solution are confident, and the solution branches at the few that are not. The same entropy plays two roles: it trains the probe, and it decides where to steer.</p>
+        <div class="callout"><p>HEST edits the hidden state only at hesitation points, re-decodes that one token from the edited state, and leaves every other position unchanged.</p></div>
+      </div>
+    </div>
+
+    <div class="card l2">
+      <button class="head" type="button" aria-expanded="true">A Hyperbolic Probe Trained on Entropy <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>A two-layer perceptron $\phi$ followed by the exponential map at the origin embeds hidden states in the Poincaré ball $\mathbb{D}^n_c$ of curvature $-c$&#8288;:</p>
+        <div class="formula">\[ E(h)=\exp^{c}_{0}\!\left(\frac{\phi\big((h-\mu)/\sigma\big)}{\omega}\right). \]</div>
+        <p>A readout $s$ is a scalar function on the ball that is low at confident states and high at hesitant ones. The Busemann readout uses a learned ideal point $\xi/\sqrt{c}$ on the boundary of the ball, and the radius readout is the distance to the origin:</p>
+        <div class="formula">\[ b(z)=B_{\xi}\big(\sqrt{c}\,z\big),\quad B_{\xi}(y)=\log\frac{\lVert\xi-y\rVert^{2}}{1-\lVert y\rVert^{2}},\qquad r(z)=\frac{2}{\sqrt{c}}\operatorname{artanh}\!\big(\sqrt{c}\,\lVert z\rVert\big). \]</div>
+        <ul class="tri">
+          <li>Trained with a pairwise margin loss that orders states by entropy and a triplet loss that keeps nearby states of one solution close; the curvature and the ideal point are learned jointly with $\phi$&#8288;.</li>
+          <li>Training data: the states and entropies of greedy solutions to 100 training problems, without any correctness label.</li>
+          <li>On held-out problems, the Busemann readout orders 85 to 90% of the entropy pairs correctly.</li>
+        </ul>
+        <figure class="narrow">
+          <img src="static/fig_disks_dev.png" alt="Hidden states of the development model embedded in the Poincaré disk by the two probes. Confident states, in light blue, lie on smaller horospheres of the ideal point and nearer the origin; hesitant states, in dark blue, lie farther out." width="1296" height="420">
+          <figcaption><b>Real embedded states of the development model.</b> Left: the Busemann probe, with horospheres of the ideal point $\xi$&#8288;. Right: the radius probe, with spheres around the origin $O$&#8288;. Color is the next-token entropy of each state.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="card l2">
+      <button class="head" type="button" aria-expanded="true">Hyperbolic Steering <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>At a hesitation point with $z=E(h)$&#8288;, the steering direction is the negative Riemannian gradient of the readout, and the embedded state moves along the geodesic in that direction by hyperbolic distance $t$&#8288;:</p>
+        <div class="formula">\[ u=-\frac{\nabla^{\mathcal R} s(z)}{\lVert\nabla^{\mathcal R} s(z)\rVert},\qquad z'=z\oplus_{c}\left(\tanh\!\Big(\frac{\sqrt{c}\,t}{2}\Big)\frac{u}{\sqrt{c}}\right), \]</div>
+        <p>where $\oplus_c$ is Möbius addition.</p>
+        <div class="callout">
+          <p><span class="lead">Proposition.</span> Let $z'$ be the point above with $t>0$&#8288;. Then $d_c(z,z')=t$&#8288;; for the Busemann readout, $b(z')=b(z)-\sqrt{c}\,t$&#8288;; and for the radius readout, $r(z')=r(z)-t$ whenever $t\le r(z)$&#8288;.</p>
+        </div>
+        <p>The step length therefore has the same meaning at every state: it is the hyperbolic distance traveled and fixes the drop of the readout. The two geometries differ in the Busemann readout. In the Poincaré ball, its descent curves are geodesics that converge on the ideal point, so the direction depends on the state. In the Euclidean limit $c\to 0$&#8288;, the readout becomes a linear function whose descent direction is the same everywhere.</p>
+      </div>
+    </div>
+
+    <div class="card l3">
+      <button class="head" type="button" aria-expanded="true">Mapping the Step Back to the Hidden State <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>An edit $\Delta h$ with $E(h+\Delta h)\approx z'$ is found by at most four damped Gauss-Newton iterations,</p>
+        <div class="formula">\[ \Delta h \leftarrow \Delta h + J^{\top}\big(JJ^{\top}+\eta I\big)^{-1}\big(z'-E(h+\Delta h)\big),\qquad J=\frac{\partial E}{\partial h}, \]</div>
+        <p>each of which solves one $n\times n$ system with $n=128$&#8288;. The key and value entries of the hesitating position are removed from the cache, the forward pass of that token is recomputed with $h_i+\Delta h_i$ at layer $\ell$&#8288;, and the next token is chosen from the new distribution. Later tokens attend to the edited state.</p>
+        <ul class="tri">
+          <li><strong>Layer:</strong> taken from prior work (19 for the Qwen models, 13 for Llama).</li>
+          <li><strong>Threshold $\theta$&#8288;:</strong> 1 nat for the development model; for the other models chosen without labels so that about as many tokens are steered.</li>
+          <li><strong>Step length $t$&#8288;:</strong> 0.5 for the Busemann readout and 0.25 for the radius readout, chosen on the development model and kept for the others.</li>
+          <li><strong>Fallback:</strong> a steered decode that reaches the limit of 3072 new tokens reports the greedy answer.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="container">
+    <h2>Results</h2>
+
+    <div class="card">
+      <button class="head" type="button" aria-expanded="true">Main Results on Three Models <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>Three instruction-tuned models, MATH-500 and GSM8K, greedy decoding with a limit of 3072 new tokens, and one grading protocol for every method. CAA uses the difference of means of the same probe-training states, split at the same threshold, and adds it at every generated token with multiplier 1. With the Busemann readout, HEST improves greedy accuracy in five of the six settings and fixes 88 problems while breaking 63 over all six, whereas CAA lowers accuracy in every setting. HEST steers a median of 0.8 to 3.0% of the tokens of a solution.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr class="group"><th class="blank" colspan="3"></th><th class="hest" colspan="2">HEST</th><th class="blank" colspan="2"></th></tr>
+              <tr><th class="l">Model</th><th class="l">Dataset</th><th>Greedy</th><th class="hest">Busemann</th><th class="hest">radius</th><th>CAA</th><th>Steered (%)</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="l">Qwen2.5-Math-1.5B-Instruct</td><td class="l">MATH-500</td><td>74.20</td><td class="hest best">76.00<span class="d pos">+1.80</span></td><td class="hest">75.20<span class="d pos">+1.00</span></td><td>70.00<span class="d neg">−4.20</span></td><td>1.1</td></tr>
+              <tr><td class="l"></td><td class="l">GSM8K</td><td>84.84</td><td class="hest best">85.37<span class="d pos">+0.53</span></td><td class="hest">84.53<span class="d neg">−0.30</span></td><td>84.23<span class="d neg">−0.61</span></td><td>1.6</td></tr>
+              <tr class="sep"><td class="l">Llama-3.1-8B-Instruct</td><td class="l">MATH-500</td><td>50.80</td><td class="hest best">52.00<span class="d pos">+1.20</span></td><td class="hest">51.00<span class="d pos">+0.20</span></td><td>38.20<span class="d neg">−12.60</span></td><td>0.8</td></tr>
+              <tr><td class="l"></td><td class="l">GSM8K</td><td class="best">84.61</td><td class="hest">84.31<span class="d neg">−0.30</span></td><td class="hest">84.53<span class="d neg">−0.08</span></td><td>80.06<span class="d neg">−4.55</span></td><td>3.0</td></tr>
+              <tr class="sep"><td class="l">Qwen2.5-Math-7B-Instruct</td><td class="l">MATH-500</td><td>84.00</td><td class="hest best">84.80<span class="d pos">+0.80</span></td><td class="hest">84.20<span class="d pos">+0.20</span></td><td>82.60<span class="d neg">−1.40</span></td><td>1.0</td></tr>
+              <tr><td class="l"></td><td class="l">GSM8K</td><td>95.38</td><td class="hest best">95.60<span class="d pos">+0.23</span></td><td class="hest">95.45<span class="d pos">+0.08</span></td><td>95.00<span class="d neg">−0.38</span></td><td>2.0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Accuracy (%) and change from greedy decoding in points. HEST with the Busemann readout uses $t=0.5$&#8288;, the radius readout $t=0.25$&#8288;. Steered: median percentage of tokens steered per solution (Busemann). Bold: best accuracy per row.</p>
+      </div>
+    </div>
+
+    <div class="card l2">
+      <button class="head" type="button" aria-expanded="true">Which Problems Benefit <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>Problems are grouped by the number of hesitation points in their greedy solution, which is fixed before any intervention. Most problems hesitate little and are already solved: in all six settings the group with at most 10 hesitation points holds 71 to 81% of the problems, HEST breaks almost nothing there, and accuracy changes by at most 0.84 points. The gain per problem grows with hesitation: in the group with at least 25 hesitation points, HEST gains 2.94 to 5.06 points in five of the six settings.</p>
+        <figure class="narrow">
+          <img src="static/fig_hesitation.png" alt="Two line charts over three groups of problems (0 to 10, 11 to 24, at least 25 hesitation points). Left: greedy accuracy falls with the number of hesitation points. Right: the change in accuracy with HEST is near zero for the first group and grows to 3 to 5 points for the last group in five of six settings." width="1320" height="442">
+          <figcaption><b>Accuracy changes little on most problems, and HEST gains most where the greedy solution hesitates often.</b> Left: greedy accuracy. Right: change in accuracy with HEST, Busemann readout, $t=0.5$&#8288;.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="card l2">
+      <button class="head" type="button" aria-expanded="true">An Example from MATH-500 <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>A geometry problem on which the greedy solution of Qwen2.5-Math-1.5B-Instruct is wrong and the HEST solution is right. The greedy solution has 189 tokens, and the next-token entropy exceeds $\theta=1$ at three of them. The first is where the model states which angle is the right angle. Greedy decoding writes $\angle T$&#8288;, contrary to the diagram, and concludes $\sin T=1$&#8288;. After HEST steers this token, the model writes $\angle RST$ and reaches $\sqrt{21}/5$&#8288;. HEST steers 12 of the 583 tokens of its own solution.</p>
+        <figure>
+          <div class="strip-scroll">
+            <svg class="strip" viewBox="0 0 920 170" role="img" aria-labelledby="strip-title strip-desc" xmlns="http://www.w3.org/2000/svg">
+            <title id="strip-title">Next-token entropy along one greedy solution</title>
+            <desc id="strip-desc">Entropy of the next-token distribution at each of the 189 tokens of a greedy solution. Three tokens exceed the threshold of 1 nat and are marked in orange; HEST steers only those.</desc>
+            <line x1="46" y1="132" x2="906" y2="132" class="ax"/>
+            <line x1="46" y1="18" x2="46" y2="132" class="ax"/>
+            <line x1="42" y1="132.0" x2="46" y2="132.0" class="ax"/>
+            <text x="38" y="136.0" class="tick" text-anchor="end">0</text>
+            <line x1="42" y1="75.0" x2="46" y2="75.0" class="ax"/>
+            <text x="38" y="79.0" class="tick" text-anchor="end">1</text>
+            <line x1="42" y1="18.0" x2="46" y2="18.0" class="ax"/>
+            <text x="38" y="22.0" class="tick" text-anchor="end">2</text>
+            <line x1="47.6" y1="132" x2="47.6" y2="136" class="ax"/>
+            <text x="47.6" y="149" class="tick" text-anchor="middle">0</text>
+            <line x1="275.2" y1="132" x2="275.2" y2="136" class="ax"/>
+            <text x="275.2" y="149" class="tick" text-anchor="middle">50</text>
+            <line x1="502.7" y1="132" x2="502.7" y2="136" class="ax"/>
+            <text x="502.7" y="149" class="tick" text-anchor="middle">100</text>
+            <line x1="730.2" y1="132" x2="730.2" y2="136" class="ax"/>
+            <text x="730.2" y="149" class="tick" text-anchor="middle">150</text>
+            <text x="476" y="166" class="axl" text-anchor="middle">token position in the greedy solution</text>
+            <text transform="translate(12 75) rotate(-90)" class="axl" text-anchor="middle">H (nats)</text>
+            <line x1="46" y1="75.0" x2="906" y2="75.0" class="thr"/>
+            <text x="908" y="79.0" class="thrl">θ</text>
+            <rect x="46.0" y="111.1" width="3.28" height="20.9" class="bar"/>
+            <rect x="50.6" y="102.9" width="3.28" height="29.1" class="bar"/>
+            <rect x="55.1" y="130.3" width="3.28" height="1.7" class="bar"/>
+            <rect x="59.7" y="131.8" width="3.28" height="0.2" class="bar"/>
+            <rect x="64.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="68.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="73.3" y="129.9" width="3.28" height="2.1" class="bar"/>
+            <rect x="77.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="82.4" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="87.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="91.5" y="116.6" width="3.28" height="15.4" class="bar"/>
+            <rect x="96.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="100.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="105.2" y="100.9" width="3.28" height="31.1" class="bar"/>
+            <rect x="109.7" y="131.8" width="3.28" height="0.2" class="bar"/>
+            <rect x="114.3" y="95.1" width="3.28" height="36.9" class="bar"/>
+            <rect x="118.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="123.4" y="130.4" width="3.28" height="1.6" class="bar"/>
+            <rect x="127.9" y="116.0" width="3.28" height="16.0" class="bar"/>
+            <rect x="132.5" y="131.7" width="3.28" height="0.3" class="bar"/>
+            <rect x="137.0" y="94.1" width="3.28" height="37.9" class="bar"/>
+            <rect x="141.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="146.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="150.7" y="131.6" width="3.28" height="0.4" class="bar"/>
+            <rect x="155.2" y="126.0" width="3.28" height="6.0" class="bar"/>
+            <rect x="159.8" y="122.4" width="3.28" height="9.6" class="bar"/>
+            <rect x="164.3" y="130.0" width="3.28" height="2.0" class="bar"/>
+            <rect x="168.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="173.4" y="104.1" width="3.28" height="27.9" class="bar"/>
+            <rect x="178.0" y="125.1" width="3.28" height="6.9" class="bar"/>
+            <rect x="182.5" y="108.1" width="3.28" height="23.9" class="bar"/>
+            <rect x="187.1" y="86.9" width="3.28" height="45.1" class="bar"/>
+            <rect x="191.6" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="196.2" y="131.8" width="3.28" height="0.2" class="bar"/>
+            <rect x="200.7" y="131.2" width="3.28" height="0.8" class="bar"/>
+            <rect x="205.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="209.8" y="115.8" width="3.28" height="16.2" class="bar"/>
+            <rect x="214.4" y="131.3" width="3.28" height="0.7" class="bar"/>
+            <rect x="218.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="223.5" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="228.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="232.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="237.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="241.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="246.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="250.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="255.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="259.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="264.4" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="269.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="273.5" y="115.2" width="3.28" height="16.8" class="bar"/>
+            <rect x="278.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="282.6" y="127.2" width="3.28" height="4.8" class="bar"/>
+            <rect x="287.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="291.7" y="131.8" width="3.28" height="0.2" class="bar"/>
+            <rect x="296.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="300.8" y="131.8" width="3.28" height="0.2" class="bar"/>
+            <rect x="305.4" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="309.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="314.5" y="131.7" width="3.28" height="0.3" class="bar"/>
+            <rect x="319.0" y="131.3" width="3.28" height="0.7" class="bar"/>
+            <rect x="323.6" y="80.9" width="3.28" height="51.1" class="bar"/>
+            <rect x="328.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="332.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="337.2" y="64.1" width="3.28" height="67.9" class="hes"/>
+            <rect x="341.8" y="95.9" width="3.28" height="36.1" class="bar"/>
+            <rect x="346.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="350.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="355.4" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="360.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="364.5" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="369.1" y="131.6" width="3.28" height="0.4" class="bar"/>
+            <rect x="373.6" y="94.6" width="3.28" height="37.4" class="bar"/>
+            <rect x="378.2" y="103.5" width="3.28" height="28.5" class="bar"/>
+            <rect x="382.7" y="131.7" width="3.28" height="0.3" class="bar"/>
+            <rect x="387.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="391.8" y="106.1" width="3.28" height="25.9" class="bar"/>
+            <rect x="396.4" y="131.2" width="3.28" height="0.8" class="bar"/>
+            <rect x="400.9" y="98.8" width="3.28" height="33.2" class="bar"/>
+            <rect x="405.5" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="410.0" y="102.4" width="3.28" height="29.6" class="bar"/>
+            <rect x="414.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="419.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="423.7" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="428.2" y="115.5" width="3.28" height="16.5" class="bar"/>
+            <rect x="432.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="437.3" y="123.3" width="3.28" height="8.7" class="bar"/>
+            <rect x="441.9" y="120.3" width="3.28" height="11.7" class="bar"/>
+            <rect x="446.4" y="116.6" width="3.28" height="15.4" class="bar"/>
+            <rect x="451.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="455.5" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="460.1" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="464.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="469.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="473.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="478.3" y="127.3" width="3.28" height="4.7" class="bar"/>
+            <rect x="482.8" y="121.6" width="3.28" height="10.4" class="bar"/>
+            <rect x="487.4" y="106.5" width="3.28" height="25.5" class="bar"/>
+            <rect x="491.9" y="93.5" width="3.28" height="38.5" class="bar"/>
+            <rect x="496.5" y="112.6" width="3.28" height="19.4" class="bar"/>
+            <rect x="501.0" y="129.7" width="3.28" height="2.3" class="bar"/>
+            <rect x="505.6" y="96.0" width="3.28" height="36.0" class="bar"/>
+            <rect x="510.1" y="125.6" width="3.28" height="6.4" class="bar"/>
+            <rect x="514.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="519.2" y="131.1" width="3.28" height="0.9" class="bar"/>
+            <rect x="523.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="528.3" y="130.9" width="3.28" height="1.1" class="bar"/>
+            <rect x="532.9" y="120.0" width="3.28" height="12.0" class="bar"/>
+            <rect x="537.4" y="129.3" width="3.28" height="2.7" class="bar"/>
+            <rect x="542.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="546.5" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="551.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="555.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="560.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="564.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="569.3" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="573.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="578.4" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="582.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="587.5" y="131.5" width="3.28" height="0.5" class="bar"/>
+            <rect x="592.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="596.6" y="122.0" width="3.28" height="10.0" class="bar"/>
+            <rect x="601.1" y="63.9" width="3.28" height="68.1" class="hes"/>
+            <rect x="605.7" y="88.6" width="3.28" height="43.4" class="bar"/>
+            <rect x="610.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="614.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="619.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="623.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="628.4" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="633.0" y="131.2" width="3.28" height="0.8" class="bar"/>
+            <rect x="637.5" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="642.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="646.6" y="61.0" width="3.28" height="71.0" class="hes"/>
+            <rect x="651.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="655.7" y="84.4" width="3.28" height="47.6" class="bar"/>
+            <rect x="660.3" y="131.6" width="3.28" height="0.4" class="bar"/>
+            <rect x="664.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="669.4" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="673.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="678.5" y="96.2" width="3.28" height="35.8" class="bar"/>
+            <rect x="683.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="687.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="692.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="696.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="701.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="705.8" y="131.3" width="3.28" height="0.7" class="bar"/>
+            <rect x="710.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="714.9" y="122.5" width="3.28" height="9.5" class="bar"/>
+            <rect x="719.4" y="124.9" width="3.28" height="7.1" class="bar"/>
+            <rect x="724.0" y="102.2" width="3.28" height="29.8" class="bar"/>
+            <rect x="728.5" y="130.1" width="3.28" height="1.9" class="bar"/>
+            <rect x="733.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="737.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="742.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="746.7" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="751.3" y="129.4" width="3.28" height="2.6" class="bar"/>
+            <rect x="755.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="760.4" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="764.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="769.5" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="774.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="778.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="783.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="787.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="792.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="796.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="801.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="805.9" y="130.2" width="3.28" height="1.8" class="bar"/>
+            <rect x="810.4" y="131.9" width="3.28" height="0.1" class="bar"/>
+            <rect x="815.0" y="77.9" width="3.28" height="54.1" class="bar"/>
+            <rect x="819.5" y="130.5" width="3.28" height="1.5" class="bar"/>
+            <rect x="824.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="828.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="833.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="837.7" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="842.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="846.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="851.4" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="855.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="860.5" y="131.8" width="3.28" height="0.2" class="bar"/>
+            <rect x="865.0" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="869.6" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="874.1" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="878.7" y="125.7" width="3.28" height="6.3" class="bar"/>
+            <rect x="883.2" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="887.8" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="892.3" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="896.9" y="132.0" width="3.28" height="0.0" class="bar"/>
+            <rect x="901.4" y="114.0" width="3.28" height="18.0" class="bar"/>
+            <path d="M 338.9 61.1 L 372.9 26.0" class="ann"/>
+            <text x="376.9" y="28.0" class="annt">∠T or ∠RST?</text>
+            </svg>
+          </div>
+          <figcaption><b>Next-token entropy along the greedy solution.</b> The three tokens above the threshold $\theta$ are the hesitation points; HEST edits the hidden state at those tokens only.</figcaption>
+        </figure>
+        <div class="example">
+          <div class="box problem">
+            <p><strong>Problem</strong> (MATH-500, geometry, level 3). In $\triangle RST$&#8288;, shown, $\sin R=\tfrac{2}{5}$&#8288;. What is $\sin T$? <em>[Diagram: right angle at $S$&#8288;; $RT=5$&#8288;.]</em></p>
+            <p><strong>Common prefix.</strong> … Given: … $\triangle RST$ is a right triangle with $\angle$<span class="mark">?</span> <span class="hint">first hesitation point, $H=1.19>\theta$</span></p>
+          </div>
+          <div class="cont">
+            <div class="box">
+              <h4>Greedy decoding</h4>
+              <p>$\angle$<span class="mark">$T$</span>$=90^\circ$ … “since $\angle T=90^\circ$&#8288;, we know that $\sin 90^\circ=1$” … $\boxed{1}$ <span class="verdict bad">✗</span></p>
+            </div>
+            <div class="box hest">
+              <h4>HEST: steered at this token</h4>
+              <p>$\angle$<span class="mark">$RST$</span>$=90^\circ$ … “$\angle R$ and $\angle T$ are complementary” … $\sin T=\cos R=\boxed{\tfrac{\sqrt{21}}{5}}$ <span class="verdict ok">✓</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card l3">
+      <button class="head" type="button" aria-expanded="true">Ablation Highlights <span class="tg" aria-hidden="true">&minus;</span></button>
+      <div class="body">
+        <p>On Qwen2.5-Math-1.5B-Instruct, each variant changes one component of HEST and keeps the rest (Table 3 of the paper).</p>
+        <ul class="tri">
+          <li><strong>The gate matters.</strong> A step of the same size at every token changes MATH-500 accuracy by $-0.20$ points and at the step boundaries by $-0.40$&#8288;, whereas steering only the hesitation points gains $+1.80$&#8288;. Only edits at hesitation points yield a gain.</li>
+          <li><strong>The geometry matters.</strong> A Euclidean probe trained in the same way, the limit $c\to 0$ with the same edit size, predicts entropy at least as well but lowers accuracy with the Busemann readout, by $0.80$ points on MATH-500 and $0.15$ on GSM8K, where HEST gains $1.80$ and $0.53$&#8288;. The curvature matters most for the Busemann readout, the readout where the two geometries differ.</li>
+          <li><strong>The direction matters on the harder benchmark.</strong> Under the gate and the small step, a fixed CAA direction matches HEST on MATH-500 but gains only $0.08$ points on GSM8K against $0.53$&#8288;; the same vector added at every token, as in CAA, lowers MATH-500 accuracy by $4.20$ points.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="citation">
+  <div class="container">
+    <h2>Citation</h2>
+    <p class="intro">If you find HEST useful in your research, please cite the paper:</p>
+    <div class="bib">
+      <pre id="bibtext">@article{zhang2026hesitation,
+  title={Hesitation Has a Geometry: Entropy-Trained Hyperbolic Probes for Sparse Activation Steering},
+  author={Zhang, Zeyong and Kwok, Tung Sum Thomas and Ma, Tengfei and Xu, Mengjia},
+  journal={arXiv preprint arXiv:2610.02391},
+  year={2026}
+}</pre>
+      <button type="button" id="copybib"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>Copy</span></button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <p>This work was supported by the DOE SEA-CROGS project (DE-SC0023191) and the AFOSR project (FA9550-24-1-0231).</p>
+    <p>Code and page: <a href="https://github.com/Zeyong98/HEST">github.com/Zeyong98/HEST</a>. Contact: <a href="mailto:zz63@njit.edu">zz63@njit.edu</a>.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  document.querySelectorAll('.card > .head').forEach(function (h) {
+    h.addEventListener('click', function () {
+      var card = h.parentElement, open = !card.classList.contains('collapsed');
+      card.classList.toggle('collapsed', open);
+      h.setAttribute('aria-expanded', String(!open));
+      var tg = h.querySelector('.tg'); if (tg) tg.textContent = open ? '+' : '−';
+    });
+  });
+  var b = document.getElementById('copybib'), t = document.getElementById('bibtext');
+  if (!b || !t || !navigator.clipboard) { if (b) b.hidden = true; return; }
+  var label = b.querySelector('span');
+  b.addEventListener('click', function () {
+    navigator.clipboard.writeText(t.textContent).then(function () {
+      label.textContent = 'Copied';
+      setTimeout(function () { label.textContent = 'Copy'; }, 1500);
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper below."
+title: "HEST: Hyperbolic Entropy Steering"
+authors:
+  - family-names: Zhang
+    given-names: Zeyong
+  - family-names: Kwok
+    given-names: Tung Sum Thomas
+  - family-names: Ma
+    given-names: Tengfei
+  - family-names: Xu
+    given-names: Mengjia
+repository-code: "https://github.com/Zeyong98/HEST"
+url: "https://zeyong98.github.io/HEST/"
+license: MIT
+preferred-citation:
+  type: article
+  title: "Hesitation Has a Geometry: Entropy-Trained Hyperbolic Probes for Sparse Activation Steering"
+  authors:
+    - family-names: Zhang
+      given-names: Zeyong
+    - family-names: Kwok
+      given-names: Tung Sum Thomas
+    - family-names: Ma
+      given-names: Tengfei
+    - family-names: Xu
+      given-names: Mengjia
+  year: 2026
+  journal: "arXiv preprint arXiv:2610.02391"
+  url: "https://arxiv.org/abs/2610.02391"

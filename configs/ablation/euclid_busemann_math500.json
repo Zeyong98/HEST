@@ -1,0 +1,14 @@
+[
+ {
+  "kind": "chart",
+  "chart": "data/checkpoints/entchart_euclid_busemann_L19.pt",
+  "target": "ideal",
+  "t": 0.613,
+  "rho": 1.0,
+  "K": 1,
+  "mode": "reroll",
+  "ent_thr": 1.0,
+  "retrigger": true,
+  "refractory": 1
+ }
+]

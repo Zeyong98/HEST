@@ -1,0 +1,13 @@
+[
+ {
+  "kind": "vecgate",
+  "vec": "data/checkpoints/caa_q15_gsm.pt",
+  "rel": 0.06,
+  "K": 1,
+  "rho": 0,
+  "mode": "reroll",
+  "ent_thr": 1.0,
+  "retrigger": true,
+  "refractory": 1
+ }
+]
